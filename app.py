@@ -858,6 +858,34 @@ def health():
 @app.route('/')
 def home():
     return '<h2>⚡ LoadSheddingPK Bot is running! 🇵🇰</h2>', 200
+    @app.route('/webhook', methods=['GET'])
+def verify_webhook():
+    mode = request.args.get('hub.mode')
+    token = request.args.get('hub.verify_token')
+    challenge = request.args.get('hub.challenge')
+    if mode == 'subscribe' and token == os.environ.get('VERIFY_TOKEN'):
+        return challenge, 200
+    return 'Forbidden', 403
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.json
+    try:
+        msg = data['entry'][0]['changes'][0]['value']['messages'][0]
+        text = msg['text']['body']
+        phone = msg['from']
+        reply = handle_message(text, phone)
+        # Send reply via Meta API
+        token = os.environ.get('WHATSAPP_TOKEN')
+        phone_id = os.environ.get('PHONE_NUMBER_ID')
+        requests.post(
+            f'https://graph.facebook.com/v18.0/{phone_id}/messages',
+            headers={'Authorization': f'Bearer {token}'},
+            json={'messaging_product': 'whatsapp', 'to': phone, 'text': {'body': reply}}
+        )
+    except Exception as e:
+        print(f'Webhook error: {e}')
+    return 'OK', 200
 
 if __name__ == '__main__':
     print('⚡ LoadSheddingPK Bot starting...')
